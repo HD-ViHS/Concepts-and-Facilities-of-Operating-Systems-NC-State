@@ -1,0 +1,96 @@
+#include <stdlib.h>
+#include <stdbool.h>
+#include <math.h>
+#include <unistd.h>
+#include <stdio.h>
+#include <fcntl.h>
+#include <sys/types.h>
+#include <sys/shm.h>
+#include <errno.h>
+#include <string.h>
+#include "common.h"
+
+// Print out an error message and exit.
+static void fail( char const *message )
+{
+  fprintf( stderr, "%s\n", message );
+  exit( 1 );
+}
+
+int main( int argc, char *argv[] )
+{
+
+  typdef struct AccountList Accounts;
+
+  int shmId = shmget(SHMKEY, sizeof(AccountList), 0666);
+  if(shmId == -1)
+    fail( "Can't create shared memory");
+  
+  AccountList *accounts = (AccountList *)shmat(shmId, NULL, 0);
+  if(*accounts == -1 )
+    fail("Can't map shared memory into address space" );
+
+  if(argc == 4 &&
+     (strcmp(argv[1], "credit") == 0 || strcmp(argv[1], "debit") == 0))  {
+
+    int bufferNum = 0; // Digit to store amount as num
+    char **test = &(argv[i]); // Char** for error checking after performing strtod()
+
+    double amountDouble = strtod(argv[i], test);
+    if(amountDouble == 0.0 && **test != '\0')
+      fail("error");
+
+    // This simple algorithm comes with credit to
+    // https://www.geeksforgeeks.org/rounding-floating-point-number-two-decimal-places-c-c/
+    bufferNum = (int)(amountDouble * 100 + .5);
+
+    if(bufferNum > MONETARY_LIMIT || bufferNum < 0) {
+      fail("error");
+    }
+    
+  } else if (argc == 3 && strcmp(argv[1], "query") == 0) {
+    
+  }
+  } else {
+    fail("error");
+  }
+    
+  if(strcmp(argv[1], "credit") == 0) {
+    for(int i = 0; i < accounts->size; i++) {
+      if(strcmp(argv[2], accounts->names[i]) == 0) {
+	if(accounts->balances[i] + bufferNum > MONETARY_LIMIT)
+	  fail("error");
+	accounts->balances[i] += bufferNum;
+	printf("success");
+	break;
+      }
+      fail("error");
+    }
+  } else if (strcmp(argv[1], "debit") == 0) {
+    for(int i = 0; i < accounts->size; i++) {
+      if(strcmp(argv[2], accounts->names[i]) == 0) {
+	if(accounts->balances[i] - bufferNum < 0)
+	  fail("error");
+	accounts->balances[i] -= bufferNum;
+	printf("success");
+	break;
+      }
+      fail("error");
+    }
+  } else if (strcmp(argv[1], "query") == 0) {
+    for(int i = 0; i < accounts->size; i++) {
+      if(strcmp(argv[2], accounts->names[i]) == 0) {
+	double doubleToPrint = (double)accounts->balances[i];
+	doubleToPrint = doubleToPrint / 100;
+	if(printf("%.2f\n", doubleToPrint) < 1) {
+	  fail("error printing query amount");
+	}
+      }
+    }
+    fail("error");
+  } else {
+    fail("error");
+  }
+
+  return 0;
+}

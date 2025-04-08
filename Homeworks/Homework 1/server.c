@@ -1,0 +1,303 @@
+#include "common.h"
+#include <stdlib.h>
+#include <stdbool.h>
+#include <math.h>
+#include <unistd.h>
+#include <stdio.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <mqueue.h>
+#include <signal.h>
+#include <errno.h>
+#include <string.h>
+
+// Minimum number of Accounts
+#define ALIST_MIN 1
+// ASCII value of '0'
+#define ASCII_ZERO 48
+// ASCII value of '9'
+#define ASCII_NINE 57
+// Largest value an account can hold as an int number of cents
+#define MONETARY_LIMIT 1000000000
+
+// Defining the Accounts struct for the failure conditions
+struct Accounts {
+  int balances[ALIST_MAX];
+  char *names[ALIST_MAX];
+};
+
+// Print out an error message and exit.
+static void fail( char const *message ) {
+  fprintf( stderr, "%s\n", message );
+  exit( 1 );
+}
+
+// Close memory, print out an error message, and exit.
+static void failAndClose( char const *message, void *memory, int numOfAccounts ) {
+  for( int i = 0; i < numOfAccounts; i++)
+    free(((struct Accounts *)memory)->names[i]); // Free the malloc'd memory for holding account names
+
+  free(memory); // Free the struct itself
+  
+  fprintf( stderr, "%s\n", message );
+  exit( 1 );
+}
+
+// Flag for telling the server to stop running because of a sigint.
+// This is safer than trying to print in the signal handler.
+static int running = 1;
+
+// Function called if a signal is recieved 
+void escapeHandler( int sig ) {
+  // Change the running flag to false
+  running = 0;
+}
+
+// Function called to send response to client
+void sendResponse(mqd_t queue, char buffer[MESSAGE_LIMIT], const char *message) {
+  strcpy(buffer, message);
+  mq_send( queue, buffer, strlen(buffer), 0 );
+}
+
+// Begins the program, processes the input line,
+// and waits for a message queue from the
+// client and escapes on an ^C interrupt
+int main( int argc, char *argv[] ) {
+  // Remove both queues, in case, last time, this program terminated
+  // abnormally with some queued messages still queued.
+  mq_unlink( SERVER_QUEUE );
+  mq_unlink( CLIENT_QUEUE );
+
+  // Prepare structure indicating maximum queue and message sizes.
+  struct mq_attr attr;
+  attr.mq_flags = 0;
+  attr.mq_maxmsg = 1;
+  attr.mq_msgsize = MESSAGE_LIMIT;
+
+  // Create and fill in struct to redirect user interrupt signal
+  struct sigaction act;
+  act.sa_handler = escapeHandler;
+  sigemptyset( &( act.sa_mask ) );
+  act.sa_flags = 0;
+  sigaction(SIGINT, &act, 0);
+
+  // Check for valid line pre-parsing (should have
+  // an odd number of arguments (counting "./server"),
+  // should represent between 1 and 10 accounts.
+  if ( (argc % 2) == 0 || argc < ( (2 * ALIST_MIN) + 1 ) || argc > ( (2 * ALIST_MAX) + 1 ))
+    fail("usage: server (<account-name> <balance>)+");
+
+  // The number of accounts based on the number
+  // of server-side arguments
+  int numOfAccounts = (argc - 1)/2;
+
+  // Struct for holding user-entered account data
+  // Number of command line arguments determines
+  // number of accounts in struct (no problem,
+  // since number of accounts cannot change)
+  typedef struct Accounts {
+    char *names[numOfAccounts];
+    int balances[numOfAccounts];
+  } Accounts;
+
+  // Allocation for accounts struct
+  Accounts *accounts = (Accounts *)malloc(sizeof(Accounts));
+
+  // Allocation for names array within accounts struct
+  for (int i = 0; i < numOfAccounts; i++) {
+    accounts->names[i] = malloc( ANAME_MAX * sizeof(char));
+  }
+
+  for(int i = 0; i < argc; i++) {
+    if(i % 2 == 0) { // account name
+      if(strlen(argv[i]) > ANAME_MAX )
+	failAndClose( "usage: server (<account-name> <balance>)+", accounts, numOfAccounts );
+
+      // Store name in struct (i/2 because twice as many args as accounts)
+      accounts->names[(i/2)] = argv[i]; 
+      
+    } else { // account amount
+      int bufferNum = 0; // Digit to store amount as num
+      char **test = &(argv[i]); // Char** for error checking after performing strtod()
+
+      double amountDouble = strtod(argv[i], test);
+      if(amountDouble == 0.0 && **test != '\0')
+	failAndClose( "usage: server (<account-name> <balance>)+", accounts, numOfAccounts );
+
+      // This simple algorithm comes with credit to
+      // https://www.geeksforgeeks.org/rounding-floating-point-number-two-decimal-places-c-c/
+      bufferNum = (int)(amountDouble * 100 + .5);
+
+      // Store amount in struct (i/2 because twice as many arguments as accounts)
+      accounts->balances[i/2] = bufferNum;
+    }
+      
+  }
+  
+  // Make both the server and client message queues.
+  mqd_t serverQueue = mq_open( SERVER_QUEUE, O_RDONLY | O_CREAT, 0600, &attr );
+  mqd_t clientQueue = mq_open( CLIENT_QUEUE, O_WRONLY | O_CREAT, 0600, &attr );
+  if ( serverQueue == -1 || clientQueue == -1 )
+    fail( "Can't create the needed message queues" );
+  
+  // Repeatedly read and process client messages.
+  while ( running ) {
+
+    // Buffer for reading input from client
+    char inputBuffer[ MESSAGE_LIMIT ];
+    char outputBuffer[ MESSAGE_LIMIT ];
+    int inputIndex = 0;
+    int parsingIndex = 0;
+
+    int len = mq_receive( serverQueue, inputBuffer, sizeof( inputBuffer ), NULL );
+
+    if ( len >= 0 ) {
+      char command[ MESSAGE_LIMIT ];
+      char acct[ MESSAGE_LIMIT ];
+      char amountString[ MESSAGE_LIMIT ];
+      while ( inputBuffer[inputIndex] != ' ' && inputIndex < MESSAGE_LIMIT ) {
+	command[parsingIndex] = inputBuffer[inputIndex];
+	parsingIndex++;
+	inputIndex++;
+      }
+
+      if(inputIndex >= MESSAGE_LIMIT) { // Too big of a message
+	sendResponse(clientQueue, outputBuffer, "error");
+	continue; // Keep reading input
+      }
+      
+      command[parsingIndex] = '\0'; // Null Terminate the string
+      parsingIndex = 0; // Reset index for next arg
+      inputIndex++; // Move past the space
+
+      if ((strcmp(command, "credit") == 0) ||
+	  (strcmp(command, "debit") == 0) ||
+	  (strcmp(command, "query") == 0)) {
+	
+        while ( inputBuffer[inputIndex] != ' ' && inputIndex < MESSAGE_LIMIT ) {
+	  acct[parsingIndex] = inputBuffer[inputIndex];
+	  parsingIndex++;
+	  inputIndex++;
+	}
+	
+	if(inputIndex >= MESSAGE_LIMIT) { // Too big of a message
+	  sendResponse(clientQueue, outputBuffer, "error");
+	  continue; // Keep reading input
+	}
+
+	acct[parsingIndex] = '\0'; // Null Terminate the string
+	parsingIndex = 0; // Reset index for next arg
+	inputIndex++; // Move past the space
+
+	for(int i = 0; i < numOfAccounts; i++) {
+	  if( strcmp(acct, accounts->names[i]) == 0) {
+	    if (strcmp(command, "credit") == 0) { // User wants to put money in acct
+	      while ( inputBuffer[inputIndex] != ' ' && inputIndex < MESSAGE_LIMIT ) {
+		amountString[parsingIndex] = inputBuffer[inputIndex];
+		parsingIndex++;
+		inputIndex++;
+	      }
+	
+	      if(inputIndex >= MESSAGE_LIMIT) { // Too big of a message
+		sendResponse(clientQueue, outputBuffer, "error");
+		break; // Found account but invalid amount, no need to continue in for loop
+	      }
+
+	      amountString[parsingIndex] = '\0'; // Null Terminate the amount
+
+	      char **test = &(argv[i]); // char** for error checking after performing strtod()
+	      
+	      double amountDouble = strtod(amountString, test);
+	      if(amountDouble == 0.0 && **test != '\0') {
+		sendResponse(clientQueue, outputBuffer, "error");
+		break; // Found account but invalid amount, no need to continue in for loop
+	      }
+
+	      int amountInt = (int)(amountDouble * 100 + .5); // Convert parsed double to an int of cents
+	      
+	      // Amount is negative or amount would put balance over limit
+	      if(amountDouble < 0.0 || ((amountInt + accounts->balances[i]) > MONETARY_LIMIT)) {
+		sendResponse(clientQueue, outputBuffer, "error");
+		break; // Found account but invalid amount, no need to continue in for loop
+	      }
+
+	      // Add the amount to the appropriate balance
+	      accounts->balances[i] += amountDouble;
+	      sendResponse(clientQueue, outputBuffer, "success");
+	      break; // Success, no need to continue in for loop
+	      
+	    } else if (strcmp(command, "debit") == 0) { // User wants to take money from acct
+
+	      while ( inputBuffer[inputIndex] != ' ' && inputIndex < MESSAGE_LIMIT ) {
+		amountString[parsingIndex] = inputBuffer[inputIndex];
+		parsingIndex++;
+		inputIndex++;
+	      }
+	
+	      if(inputIndex >= MESSAGE_LIMIT) { // Too big of a message
+		sendResponse(clientQueue, outputBuffer, "error");
+	        break; // Found account but invalid amount, no need to continue in for loop
+	      }
+
+	      amountString[parsingIndex] = '\0'; // Null Terminate the amount
+
+	      char **test = &(argv[i]); // Char** for error checking after performing strtod()
+	      
+	      double amountDouble = strtod(amountString, test);
+	      if(amountDouble == 0.0 && **test != '\0') {
+		sendResponse(clientQueue, outputBuffer, "error");
+	        break; // Found account but invalid amount, no need to continue in for loop
+	      }
+
+	      int amountInt = (int)(amountDouble * 100 + .5); // Convert double to int of cents
+	      
+	      // Amount is negative or amount would put balance over limit
+	      if(amountDouble < 0.0 || ((accounts->balances[i] - amountInt) < 0)) {
+	        sendResponse(clientQueue, outputBuffer, "error");
+	        break; // Found account but invalid amount, no need to continue in for loop
+	      }
+
+	      // Add the amount to the appropriate balance
+	      accounts->balances[i] -= amountDouble;
+	      sendResponse(clientQueue, outputBuffer, "success");
+	      break; // Success, no need to continue in for loop
+	      
+	    } else if (strcmp(command, "query") == 0) { // User just wants a query
+
+	      //Calculate dollars as a double instead of an int num of cents
+	      double dollars = ((double)((double)accounts->balances[i] / 100));
+
+	      // Should be "0.00" at the fewest chars, copies formatted double as
+	      // string to outputbuffer
+	      if(sprintf(outputBuffer, "%.2f", dollars) < 4) { 
+	        sendResponse(clientQueue, outputBuffer, "error");
+	        break; // Found account but invalid amount, no need to continue in for loop
+	      } else {
+		mq_send( clientQueue, outputBuffer, sizeof(outputBuffer), 0 );
+	      }
+	    } // Check for valid keyword was already made, so no need for "else" check here
+	  } // Account Name check
+	} // For loop through names
+
+      } else { // Query was incorrect (not "credit", "debit", or "query")
+	sendResponse(clientQueue, outputBuffer, "error");
+      }	
+    } else { // Error recieving message queue
+      sendResponse(clientQueue, outputBuffer, "error");
+    }	
+  } // While loop for running until cancelled
+
+  // Close our two message queues (and delete them).
+  mq_close( clientQueue );
+  mq_close( serverQueue );
+
+  mq_unlink( SERVER_QUEUE );
+  mq_unlink( CLIENT_QUEUE );
+
+  for(int i = 0; i < numOfAccounts; i++) {
+    double dollars = ((double)((double)accounts->balances[i] / 100));
+    printf("\n%12s%11.2f", accounts->names[i], dollars); // Print final accounts and balances
+  }
+
+  return 0;
+}
