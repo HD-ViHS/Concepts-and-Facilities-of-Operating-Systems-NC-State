@@ -1,0 +1,39 @@
+#include <stdio.h>
+#include <unistd.h>    // for write
+#include <pthread.h>   // for pthreads
+#include <stdlib.h>    // for exit
+
+// Print out an error message and exit.
+static void fail( char const *message ) {
+  fprintf( stderr, "%s\n", message );
+  exit( 1 );
+}
+
+// Define the start routines for your three threads.  Each thread will
+// use two calls to write() to print its two characters, then it will
+// terminate.
+
+// ...
+
+int main( int argc, char *argv[] ) {
+  // A bunch of times.
+  for ( int i = 0; i < 100000; i++ ) {
+    // Make three threads.
+
+    // ...
+    
+    // Join with the three threads.
+
+    // ...
+
+    // Use the write system call to print out a newline.  The string
+    // we're passing to write is null terminated (since that's what
+    // double quotesd strings are in C), but we're just using the
+    // first byte (the newline).  Write doesn't care about null
+    // terminated strings, it just writes out any sequence of bytes
+    // you ask it to.
+    write( STDOUT_FILENO, "\n", 1 );
+  }
+
+  return 0;
+}

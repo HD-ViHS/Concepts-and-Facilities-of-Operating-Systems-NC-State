@@ -1,0 +1,32 @@
+#include <stdio.h>
+#include <pthread.h>
+#include <stdlib.h>
+
+// Number of iterations for each thread
+#define ITERATIONS 500
+
+// Who gets to go next.
+int nextTurn = 0;
+
+// Print out an error message and exit.
+static void fail( char const *message ) {
+  fprintf( stderr, "%s\n", message );
+  exit( 1 );
+}
+
+// Start routines for the two threads.
+
+// ...
+
+int main( int argc, char *argv[] ) {
+
+  // Create each of the two threads.
+
+  // ...
+
+  // Wait for them both to finish.
+
+  // ...
+
+  return 0;
+}
