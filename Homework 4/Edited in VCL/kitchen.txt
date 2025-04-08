@@ -1,0 +1,5 @@
+In Global.java, the total amount of dishes prepared was 296. The chef who prepared the fewest dishes was Karon (18 dishes) and the chef who prepared the most was tied between Lynda, Orval, and Eliza (34 dishes).
+
+In Ordered.java, the total amount of dishes prepared was 837. The chef who prepared the fewest dishes was tied between Brigette and Belinda (27 dishes) and the chef who prepared the most dishes was Eliza (305 dishes).
+
+In TakeAll.java, the total amount of dishes prepared was 1016. The chef who prepared the fewest dishes was Karon (39 dishes) and the chef who prepared the most dishes was Margret (151 dishes).
