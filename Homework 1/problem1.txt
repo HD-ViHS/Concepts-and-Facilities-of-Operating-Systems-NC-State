@@ -1,0 +1,17 @@
+(a).
+stat() returns information about the file located at a string pathname in a provided buffer,
+while fstat() returns the same information in a buffer, but the file reference is a file-
+descriptor int instead of a string pathname.
+
+(b).
+The flag O_NOFOLLOW can be used to force open() to fail if the pathname is a symbolic link.
+This would prevent the type of attach described in the problem.
+
+(c).
+The ru_utime struct expresses the total amount of CPU time spent executing in user mode as a
+timeval struct. The ru_stime struct expresses the total amount of CPU time spent executing in
+kernel mode as a timeval struct.
+
+(d).
+If mq_receive returned because of an interrupt by a signal, then the errno of the return will
+hold the value EINTR, the errno for a signal interruption.

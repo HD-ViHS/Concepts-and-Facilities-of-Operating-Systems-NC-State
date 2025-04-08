@@ -1,0 +1,82 @@
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Scanner;
+import java.lang.InterruptedException;
+
+public class Zerosum {
+
+    private static List<Integer> intList = new ArrayList<Integer>();
+
+    private static class Worker extends Thread {
+        
+        private int start;
+
+        private int step;
+
+        private boolean report;
+
+        public int result = 0;
+
+        public Worker (int start, int step, boolean report) {
+            this.start = start;
+            this.step = step;
+            this.report = report;
+        }
+
+        public void run() {
+            int currentTotal = 0;
+            for(int i = start; i < intList.size(); i += step) {
+                for(int j = i; j < intList.size(); j++) {
+                    currentTotal += intList.get(j);
+                    if(currentTotal == 0) {
+                        result++;
+                        if(report) {
+                            System.out.printf("%i .. %i\n", i, j);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    public static void main(String[] args) {
+
+        int finalTalley = 0;
+
+        if(args.length > 2) {
+            System.out.println("usage: java Zerosum <workers>\n");
+            System.out.println("       java Zerosum <workers> report\n");
+
+            return;
+        }
+
+        int numWorkers = Integer.parseInt(args[0]);
+
+        boolean report = (args.length == 2 && "report".equals(args[1]));
+
+        Scanner input = new Scanner(System.in);
+
+        while(input.hasNextInt()) {
+            intList.add(input.nextInt());
+        }
+
+        input.close();
+
+        Worker[] workers = new Worker[numWorkers];
+        for(int i = 0; i < numWorkers; i++) {
+            workers[i] = new Worker(i, numWorkers, report);
+            workers[i].start();
+        }
+
+        try {
+            for(int i = 0; i < numWorkers; i++) {
+                finalTalley += workers[i].result;
+                workers[i].join();
+            }
+        } catch ( InterruptedException e ) {
+            System.out.println( "Interrupted during join!" );
+        }
+        
+
+    }
+}
