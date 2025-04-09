@@ -144,7 +144,7 @@ void runCommand( char *words[], int count )
  *        commands runnable via the execvp() system call.
  * 
  * @file stash.c
- * @author Aidan McCarthy amccart4
+ * @author Siobhan McCarthy
  */
 int main(int argc, char *argv[])
 {

@@ -37,7 +37,7 @@ static void usage()
  * @return int Success status
  * 
  * @file reset.c
- * @author Aidan McCarthy amccart4
+ * @author Siobhan McCarthy
  */
 int main( int argc, char *argv[] )
 {

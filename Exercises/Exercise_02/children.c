@@ -18,7 +18,7 @@ static void fail( char *msg ) {
  * @brief The children.c program creates 3 children, and prints their process IDs and parent process IDs.
  * 
  * @file children.c
- * @author Aidan McCarthy amccart4
+ * @author Siobhan McCarthy
  */
 int main( int argc, char *argv[] ) {
     // Try to make a child process.

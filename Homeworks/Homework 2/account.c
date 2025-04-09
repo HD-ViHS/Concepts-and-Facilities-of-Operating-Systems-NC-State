@@ -26,7 +26,7 @@ static void fail( char const *message )
  * @return int Success status
  * 
  * @file account.c
- * @author Aidan McCarthy amccart4
+ * @author Siobhan McCarthy
  */
 int main( int argc, char *argv[] )
 {

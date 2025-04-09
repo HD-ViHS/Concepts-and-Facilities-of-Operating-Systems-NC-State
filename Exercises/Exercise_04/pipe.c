@@ -19,7 +19,7 @@ static void fail( char *msg ) {
  *        is to run the command line command "ps -ef | grep bash".
  * 
  * @file pipe.c
- * @author Aidan McCarthy amccart4
+ * @author Siobhan McCarthy
  * @return int the return status of the program
  */
 int main( int argc, char *argv[] ) {
