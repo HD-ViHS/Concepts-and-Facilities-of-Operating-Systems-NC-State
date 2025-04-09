@@ -55,7 +55,7 @@ void *thread3Start( void *arg ) {
  *        "c", "d", "e", and "f" should be printed out in whatever order
  *        the scheduler gets to them.
  * 
- * @author Aidan McCarthy amccart4
+ * @author Siobhan McCarthy
  * @file interleaving.c
  * @return int the exit status of the program
  */

@@ -9,7 +9,7 @@
  * function that returns a char* and contains no parameters.
  *
  * @file polyglot.c
- * @author Aidan McCarthy amccart4
+ * @author Siobhan McCarthy
  */
 int main( int argc, char *argv[] )
 {

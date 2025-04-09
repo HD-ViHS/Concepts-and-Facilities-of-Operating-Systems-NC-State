@@ -19,7 +19,7 @@ static void fail( char *msg ) {
  *        streams.
  * 
  * @file redirect.c
- * @author Aidan McCarthy amccart4
+ * @author Siobhan McCarthy
  */
 int main( int argc, char *argv[] ) {
     // Make a child process to run cat.

@@ -3,7 +3,7 @@
  * runnables "MyRunnable1", "MyRunnable2", and "MyRunnable3" to print
  * 'a' and 'b', 'c' and 'd', and 'e' and 'f' respectively.
  * 
- * @author Aidan McCarthy amccart4
+ * @author Siobhan McCarthy
  */
 public class Interleaving {
     
@@ -38,7 +38,7 @@ public class Interleaving {
      * Starts the program.
      * 
      * @param args non-relevant command-line arguments
-     * @author Aidan McCarthy amccart4
+     * @author Siobhan McCarthy
      */
     public static void main( String[] args ) {
 	// The three threads we make.
